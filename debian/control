@@ -1,7 +1,7 @@
 Source: dh-php
 Section: php
 Priority: extra
-Maintainer: Ondřej Surý <ondrej@debian.org>
+Maintainer: Guillaume Plessis <gui@dotdeb.org>
 Build-Depends: debhelper (>= 9)
 Standards-Version: 3.9.6
 Vcs-Git: git://anonscm.debian.org/pkg-php/dh-php.git
