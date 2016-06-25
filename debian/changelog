@@ -1,3 +1,9 @@
+dh-php (0.21-1~dotdeb+8.1) stable; urgency=medium
+
+  * Rebuilt for Dotdeb against Jessie
+
+ -- Guillaume Plessis <gui@dotdeb.org>  Sat, 25 Jun 2016 16:02:42 +0000
+
 dh-php (0.5-1~dotdeb+8.1) stable; urgency=medium
 
   * Rebuilt for Dotdeb against Jessie
