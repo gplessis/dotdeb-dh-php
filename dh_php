@@ -38,8 +38,8 @@
 
 use strict;
 use File::Find;
+use List::MoreUtils qw(uniq);
 use Debian::Debhelper::Dh_Lib;
-
 
 =head1 NAME
 
@@ -64,37 +64,31 @@ It supports the following configuration types
 =item *
 PHP modules
 
-=item *
-PHP configuration snippets
-
 =back
 
-B<dh_php> supports two modes: A limited auto-configuration heuristic or
-alternatively a configuration file driven approach. If a file named
-debian/package.php exists, actual actions are determined by that file.
+B<dh_php> supports only a configuration file driven approach. If a
+file named debian/I<package>.php exists, actual actions are determined by
+that file.
 
 =head1 OPERATION MODES
 
-B<dh_php> can be used in two modes: A configuration file driven approach and
-a heuristic approach. The configuration driven mode is fully documented in the
-B<FILES> section below. This mode is activated by supplying a L<debhelper(7)>
+B<dh_php> can only be used in a configuration file driven approach.
+The configuration driven mode is fully documented in the B<FILES>
+section below.  This mode is activated by supplying a L<debhelper(7)>
 configuration file (e.g. debian/I<package>.php).
-
-The alternative is a heuristic mode, in which no files are installed through
-B<dh_php>. Instead the helper will scan the package installation directory
-for recognized files and guess their purpose depending on their installation
-path in the file system. Use with caution.
 
 =head1 INVOCATION
 
-B<dh_php> is not part of debhelper and might require information available
-in the php-dev package. Packages making use of B<dh_php> should declare
-a build-dependency against the virtual B<dh-php> package.
+B<dh_php> is not part of debhelper and might require information
+available in the php-all-dev package.  Packages making use of
+B<dh_php> should declare a build-dependency against the virtual
+B<dh-php> package.
 
-B<dh_php> supports both, called directly from a debian/rules file or as
-L<dh(1)> addon. In the former case the helper should run after L<dh_install(1)>
-or their respective counter parts in local implementations at earliest.
-Alternatively it can be used as L<dh> addon by invoking it with
+B<dh_php> supports both, called directly from a debian/rules file or
+as L<dh(1)> addon.  In the former case the helper should run after
+L<dh_install(1)> or their respective counter parts in local
+implementations at earliest.  Alternatively it can be used as L<dh>
+addon by invoking it with
 
   %:
      dh $@ --with php
@@ -122,48 +116,33 @@ I<type> I<file> [I<arguments>]
 
 where the values are interpreted as follows:
 
-
 =head3 I<type>
 
-Denotes the type of file to be installed. Recognized values are B<conf>
-for PHP global configuration snippets and B<mod> for PHP modules.
+Denotes the type of file to be installed. Recognized values are B<mod>
+for PHP modules.
 
 =head3 I<file>
 
-Is interpreted as existing file name within the source package. No path
-expansion is effectuated. Just like L<dh_install(1)>, B<dh_php> can not
-rename files.
-
-=head2 GLOBAL CONFIGURATION FILES
-
-Global configuration files (determined by the B<conf> type) must have a I<.conf>
-suffix and are installed to I</etc/php/conf-available>. Moreover, the
-configuration is activated in the maintainer script at installation time.
-
-Such global configuration snippets are supposed to be used by web applications.
-Such stanzas accept an optional third I<arguments> which is interpreted as
-dependency line of alternative web servers the package supports. See I<EXAMPLES>
-below.
-
-B<dh_php> will set dependencies in B<${misc:Recommends}> accordingly when
-this type of configuration is found. Alternatives from the optional I<argument>
-is incorporated into this dependency line.
+Is interpreted as existing file name within the source package. No
+path expansion is effectuated.  Just like L<dh_install(1)>, B<dh_php>
+can not rename files.
 
 =head2 MODULES
 
-Modules are handled specially and are determined by the B<mod> type. Modules can
-either have a I<.conf> or I<.load> suffix.  In that case the file is interpreted
-as module load file or module configuration file respectively and is installed to
-I</etc/php/mods-available>.  If the file is ending with a I<.so> suffix it is
-interpreted as actual module shared object and is installed to the PHP module
-directory.  Moreover, if a I<.load> file is installed the configuration is
-activated in the maintainer script at installation time.
+Modules are handled specially and are determined by the B<mod> type.
+Modules can have a I<.ini> suffix.  In that case the file is
+interpreted as a module configuration file respectively and is
+installed to I</etc/php/<VERSION(s)>/mods-available>.  If the file is
+ending with a I<.so> suffix it is interpreted as actual module shared
+object and is installed to the PHP module directory.  Moreover, if a
+I<.ini> file is installed the configuration is activated in the
+maintainer script at installation time.
 
-A typical module configuration has two lines, one for the I<.load> file, and one
-for the I<.so> file, albeit the latter could be installed by upstream's
-makefile, too.
+A typical module configuration has two lines, one for the I<.ini>
+file, and one for the I<.so> file, albeit the latter could be
+installed by upstream's makefile, too.
 
-B<dh_php> will set dependencies in B<${misc:Depends}> accordingly when
+B<dh_php> will set dependencies in B<${php:Depends}> accordingly when
 this type of configuration is found.
 
 =head1 OPTIONS
@@ -188,7 +167,7 @@ configuration by default.
 
 =item B<-n>, B<--noscripts>
 
-Do not modify F<postinst>/F<postrm>/F<prerm> maintainer scripts.
+Do not modify F<preinst>/F<postinst>/F<postrm>/F<prerm> maintainer scripts.
 
 
 =back
@@ -215,7 +194,7 @@ L<phpquery>(8), L<debhelper>(7), L<dh>(1)
 =head1 AUTHOR
 
 This manual and L<dh_php> was written by Arno Toell <debian@toell.net>
-for Apache 2 and modified for PHP by Ondřej Surý <ondrej@sury.org>.
+for Apache 2 and modified for PHP by Ondrej Sury <ondrej@sury.org>.
 
 =cut
 
@@ -227,18 +206,25 @@ for Apache 2 and modified for PHP by Ondřej Surý <ondrej@sury.org>.
 init(options => { "e|noenable" => \$dh{NOENABLE},
 		  "php-version=s" => \$dh{PHP_VERSION}});
 
+sub php_versions
+{
+    my @PHP_VERSIONS = split '\n', `/usr/sbin/phpquery -V`;
+    return @PHP_VERSIONS;
+}
+
 sub php_api_version
 {
     my $version = shift;
     my $API = `php-config$version --phpapi`;
+    chomp $API;
     return "phpapi-$API";
 }
-
 
 sub php_version
 {
     my $version = shift;
     my $SERVER_VERSION = `php-config$version --version`;
+    chomp $SERVER_VERSION;
     return ">= $SERVER_VERSION~";
 }
 
@@ -246,27 +232,39 @@ sub php_api_installdir
 {
     my $version = shift;
     my $MODULE_DIR = `php-config$version --extension-dir`;
+    chomp $MODULE_DIR;
     return $MODULE_DIR;
 }
 
 sub php_conf_installdir
 {
+    my $version = shift;
     my $type = shift;
-    return "etc/php/${type}-available/"
+    return "etc/php/${version}/${type}-available/"
 }
 
 foreach my $package ((@{$dh{DOPACKAGES}}))
 {
 	my %PACKAGE_TYPE = (
 		has_a_module => [],
-		has_a_conf_file => [],
 		dependency_line => "",
 		handler => $dh{ERROR_HANDLER}
 	);
 
 	my $file = pkgfile($package, "php");
+
 	my $tmp  = tmpdir($package);
 
+	my @versions;
+
+	if ($dh{PHP_VERSION}) {
+		@versions = split ' ', $dh{PHP_VERSION};
+	} elsif ($ENV{'DH_PHP_VERSIONS'}) {
+		@versions = split ' ', $ENV{'DH_PHP_VERSIONS'};
+	} else {
+		@versions = php_versions();
+	}
+       
 	my @files_to_register = filedoublearray($file, ".") if $file;
 	foreach my $line (@files_to_register)
 	{
@@ -275,24 +273,33 @@ foreach my $package ((@{$dh{DOPACKAGES}}))
 		my @arguments = map {"$_ "} @{$line};
 
 		$type .= "s" unless $type eq "conf";
-		my $installdir = $tmp . "/" . php_conf_installdir($type);
 
-		if ($type eq "mods" or $type eq "conf")
+		if ($type eq "mods")
 		{
 			my $basesource = basename($source);
 
-			if ($type eq "mods")
+			error("module: \"$basesource\" needs .so or .ini suffix") if $basesource !~ m/\.(ini|so)/;
+
+			foreach my $version (@versions)
 			{
 				if ($basesource =~ m/\.ini$/)
 				{
+					my $confinstalldir = $tmp . "/" . php_conf_installdir($version, $type);
 					my $enablename = $basesource;
 					$enablename =~ s/\.ini$//;
 					push @{$PACKAGE_TYPE{'has_a_module'}}, $enablename;
-					verbose_print("Installing module configuration $enablename into $installdir\n");
+					verbose_print("Installing module configuration $enablename into $confinstalldir\n");
+					if (! -d $confinstalldir)
+					{
+						complex_doit("mkdir","-p",$confinstalldir);
+						complex_doit("chmod","755","$confinstalldir");
+					}
+					complex_doit("cp",$source,$confinstalldir);
+					complex_doit("chmod","644","$confinstalldir/$basesource");
 				}
 				elsif ($basesource =~ m/\.so$/)
 				{
-					my $modinstalldir = $tmp . "/" . php_api_installdir($dh{PHP_VERSION});
+					my $modinstalldir = $tmp . "/" . php_api_installdir($version);
 					verbose_print("Installing module binary $source into $modinstalldir\n");
 					if (! -d $modinstalldir)
 					{
@@ -300,56 +307,14 @@ foreach my $package ((@{$dh{DOPACKAGES}}))
 						complex_doit("chmod","755","$modinstalldir");
 					}
 					complex_doit("cp", $source, $modinstalldir);
-					next;
 				}
-
-				error("module: \"$basesource\" needs .so or .ini suffix") if $basesource !~ m/\.(ini|so)/;
 			}
-
-			if (! -d $installdir)
-			{
-				complex_doit("mkdir","-p",$installdir);
-				complex_doit("chmod","755","$installdir");
-			}
-			complex_doit("cp",$source,$installdir);
-			complex_doit("chmod","644","$installdir/$basesource");
-
 		}
 		else
 		{
-			error("Unknown parameter: $type\n");
+			error("Unknown type parameter: $type\n");
 		}
-
 	}
-
-
-	if (! $file)
-	{
-		# do black magic only if there is no .php configuration file
-		find({  no_chdir => 1,
-			wanted => sub
-			{
-				my ($dir, $file) = (dirname($File::Find::name), basename($File::Find::name));
-				# remove extension
-				my $conf_name = $file;
-				$conf_name =~ s/\.[^.]+$//;
-
-				if ($dir =~ m#etc/php/mods-available# and $file =~ m#.(load|conf)$#)
-				{
-					verbose_print("package $package appears	to be a web server module\n");
-					push @{$PACKAGE_TYPE{'has_a_module'}}, $conf_name if $file =~ m/\.load/;
-				}
-				if ($dir =~ m#etc/php/conf-available# and $file =~ m#.conf$#)
-				{
-					verbose_print("package $package appears	to contain a global configuration file \n");
-					push @{$PACKAGE_TYPE{'has_a_conf_file'}}, $conf_name;
-				}
-
-
-
-		}}, tmpdir($package));
-	}
-
 
 	my @postinst_autoscripts;
 
@@ -359,42 +324,28 @@ foreach my $package ((@{$dh{DOPACKAGES}}))
 		{
 			warning("Package $package appears to be an PHP module. It should comply to the package naming scheme php-<modulename>\n");
 		}
-		addsubstvar($package, "misc:Depends", php_api_version($dh{PHP_VERSION}));
 
-		my $modules = "";
-		foreach my $module (@{$PACKAGE_TYPE{'has_a_module'}})
+		my $depends = "php-common (>= 1:7.0+33~)";
+
+		my @api_versions;
+		foreach my $version (@versions)
 		{
-			$modules .= "$module ";
+		    push @api_versions, php_api_version($version);
 		}
-
+		$depends .= ", " . join(" | ", @api_versions);
+		addsubstvar($package, "php:Depends", $depends);
+		
+		my $modules = join(" ", uniq(@{$PACKAGE_TYPE{'has_a_module'}}));
 		push @postinst_autoscripts, ["enmod", $modules];
-	}
-
-	if ($#{$PACKAGE_TYPE{'has_a_conf_file'}} >= 0)
-	{
-		$PACKAGE_TYPE{'dependency_line'} .= "| php";
-		addsubstvar($package, "misc:Recommends", "php (" . php_version($dh{PHP_VERSION}) . ") " . $PACKAGE_TYPE{'dependency_line'} );
-
-		my $confs = "";
-
-		foreach my $conf (@{$PACKAGE_TYPE{'has_a_conf_file'}})
-		{
-			$confs .= "$conf ";
-		}
-
-		if ($confs)
-		{
-			push @postinst_autoscripts, ["enconf", $confs];
-		}
 	}
 
 	if (! $dh{NOSCRIPTS})
 	{
 		foreach my $ref (@postinst_autoscripts)
 		{
-			for my $script_type (qw/postinst prerm postrm/)
+			for my $script_type (qw/preinst postinst prerm postrm/)
 			{
-				if ($script_type eq "postinst" &&  $dh{NOENABLE})
+				if ($script_type eq "postinst" && $dh{NOENABLE})
 				{
 					next
 				}
@@ -403,12 +354,8 @@ foreach my $package ((@{$dh{DOPACKAGES}}))
 					HELPER => $ref->[0],
 					NAMES  => $ref->[1],
 					ERROR_HANDLER => $PACKAGE_TYPE{handler},
-					VERSION => "ALL"
+					VERSIONS => join(" ", @versions)
 				);
-
-				if ($dh{PHP_VERSION}) {
-					$replacements{'VERSION'} = $dh{PHP_VERSION};
-				}
 
 				if ($script_type eq "prerm" || $script_type eq "postrm")
 				{
